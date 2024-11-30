@@ -48,7 +48,7 @@ __global__ void sobel_operator(unsigned char* in_image, unsigned char* out_image
     // Synchronizacja pamięci współdzielonej
     __syncthreads();
 
-    if (local_x < width - 2 && local_y < height - 2) {
+    if (local_x < width - 1 && local_y < height - 1) {
 
         int sumx = 0;
         int sumy = 0;
