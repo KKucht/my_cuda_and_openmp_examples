@@ -10,91 +10,44 @@ using namespace cv;
 
 void read_data(unsigned char* in_image, unsigned char* out_image, long long int width, long long int height, long long int padded_width) {
     for (long long int i = 0; i < height ; i++) {
-        memcpy(out_image + i * width, in_image + i * padded_width, width * sizeof(unsigned char));
+        memcpy(out_image + i * width, in_image + (i + 1) * padded_width + 1, width * sizeof(unsigned char));
     }
 }
 
 void prep_data(unsigned char* in_image, unsigned char* out_image, long long int width, long long int height, long long int padded_width) {
     for (long long int i = 0; i < height ; ++i) {
-        memcpy(out_image + i * padded_width, in_image + i * width, width * sizeof(unsigned char));
+        memcpy(out_image + (i + 1) * padded_width + 1, in_image + i * width, width * sizeof(unsigned char));
     }
 }
 
 __global__ void sobel_operator(unsigned char* in_image, unsigned char* out_image, long long width, long long height) {
-    long long x = blockIdx.x * blockDim.x + threadIdx.x;
-    long long y = blockIdx.y * blockDim.y + threadIdx.y;
-
-    long long shared_x = threadIdx.x + 1;
-    long long shared_y = threadIdx.y + 1;
+    long long int x = blockIdx.x * blockDim.x + threadIdx.x;
+    long long int y = blockIdx.y * blockDim.y + threadIdx.y;
 
     long long local_x = x + 1;
     long long local_y = y + 1;
 
-    __shared__ unsigned char shared_mem[34][34];
+    int sumx = 0;
+    int sumy = 0;
 
-    shared_mem[shared_x - 1][shared_y] = in_image[local_y * width + (local_x - 1)];
-    shared_mem[shared_x + 1][shared_y] = in_image[local_y * width + (local_x + 1)];
-    shared_mem[shared_x][shared_y - 1] = in_image[(local_y - 1) * width + local_x];
-    shared_mem[shared_x][shared_y + 1] = in_image[(local_y + 1) * width + local_x];
-    shared_mem[shared_x - 1][shared_y - 1] = in_image[(local_y - 1) * width + (local_x - 1)];
-    shared_mem[shared_x - 1][shared_y + 1] = in_image[(local_y + 1) * width + (local_x - 1)];
-    shared_mem[shared_x + 1][shared_y - 1] = in_image[(local_y - 1) * width + (local_x + 1)];
-    shared_mem[shared_x + 1][shared_y + 1] = in_image[(local_y + 1) * width + (local_x + 1)];
+    sumx -=      in_image[(local_y - 1)* width + local_x  - 1];
+    sumx +=      in_image[(local_y - 1)* width + local_x  + 1];
+    sumx -=  2 * in_image[(local_y    )* width + local_x  - 1];
+    sumx +=  2 * in_image[(local_y    )* width + local_x  + 1];
+    sumx -=      in_image[(local_y + 1)* width + local_x  - 1];
+    sumx +=      in_image[(local_y + 1)* width + local_x  + 1];
 
-    // shared_mem[shared_x][shared_y] = in_image[local_y * width + local_x];
+    sumy -=      in_image[(local_y - 1)* width + local_x  - 1];
+    sumy -=  2 * in_image[(local_y - 1)* width + local_x     ];
+    sumy -=      in_image[(local_y - 1)* width + local_x  + 1];
+    sumy +=      in_image[(local_y + 1)* width + local_x  - 1];
+    sumy +=  2 * in_image[(local_y + 1)* width + local_x     ];
+    sumy +=      in_image[(local_y + 1)* width + local_x  + 1];
 
-    // if (threadIdx.x == 0) {
-    //     shared_mem[shared_x - 1][shared_y] = in_image[local_y * width + (local_x - 1)];
-    // }
-    // if (threadIdx.x == blockDim.x - 1) {
-    //     shared_mem[shared_x + 1][shared_y] = in_image[local_y * width + (local_x + 1)];
-    // }
-    // if (threadIdx.y == 0) {
-    //     shared_mem[shared_x][shared_y - 1] = in_image[(local_y - 1) * width + local_x];
-    // }
-    // if (threadIdx.y == blockDim.y - 1) {
-    //     shared_mem[shared_x][shared_y + 1] = in_image[(local_y + 1) * width + local_x];
-    // }
+    int magnitude = sqrtf(sumx * sumx + sumy * sumy);
 
-    // if (threadIdx.x == 0 && threadIdx.y == 0) {
-    //     shared_mem[shared_x - 1][shared_y - 1] = in_image[(local_y - 1) * width + (local_x - 1)];
-    // }
-    // if (threadIdx.x == 0 && threadIdx.y == blockDim.y - 1) {
-    //     shared_mem[shared_x - 1][shared_y + 1] = in_image[(local_y + 1) * width + (local_x - 1)];
-    // }
-    // if (threadIdx.x == blockDim.x - 1 && threadIdx.y == 0) {
-    //     shared_mem[shared_x + 1][shared_y - 1] = in_image[(local_y - 1) * width + (local_x + 1)];
-    // }
-    // if (threadIdx.x == blockDim.x - 1 && threadIdx.y == blockDim.y - 1) {
-    //     shared_mem[shared_x + 1][shared_y + 1] = in_image[(local_y + 1) * width + (local_x + 1)];
-    // }
-
-    __syncthreads();
-
-    if (local_x < width - 2 && local_y < height - 2) {
-
-        int sumx = 0;
-        int sumy = 0;
-
-        sumx -=      shared_mem[shared_x  - 1][shared_y - 1];
-        sumx +=      shared_mem[shared_x  + 1][shared_y - 1];
-        sumx -=  2 * shared_mem[shared_x  - 1][shared_y    ];
-        sumx +=  2 * shared_mem[shared_x  + 1][shared_y    ];
-        sumx -=      shared_mem[shared_x  - 1][shared_y + 1];
-        sumx +=      shared_mem[shared_x  + 1][shared_y + 1];
-
-        sumy -=      shared_mem[shared_x  - 1][shared_y - 1];
-        sumy -=  2 * shared_mem[shared_x     ][shared_y - 1];
-        sumy -=      shared_mem[shared_x  + 1][shared_y - 1];
-        sumy +=      shared_mem[shared_x  - 1][shared_y + 1];
-        sumy +=  2 * shared_mem[shared_x     ][shared_y + 1];
-        sumy +=      shared_mem[shared_x  + 1][shared_y + 1];
-
-        int magnitude = sqrtf(sumx * sumx + sumy * sumy);
-
-        long long idx_out = local_y * width + local_x;
-        out_image[idx_out] = (unsigned char)(magnitude > 255 ? 255 : magnitude);
-    }
+    long long idx_out = local_y * width + local_x;
+    out_image[idx_out] = (unsigned char)(magnitude > 255 ? 255 : magnitude);
 }
 
 __global__ void sobel_operator_empty(unsigned char* in_image, unsigned char* out_image, long long width, long long height) {
@@ -140,8 +93,8 @@ int main(int argc, char **argv) {
     long long int real_nr_of_blocks_x = (cols + threadsPerBlock.x - 1) / (threadsPerBlock.x);
     long long int real_nr_of_blocks_y = (rows + threadsPerBlock.y - 1) / (threadsPerBlock.y);
 
-    long long int padded_width = real_nr_of_blocks_x * (threadsPerBlock.x);
-    long long int padded_height = real_nr_of_blocks_y * (threadsPerBlock.y );
+    long long int padded_width = real_nr_of_blocks_x * (threadsPerBlock.x) + 2;
+    long long int padded_height = real_nr_of_blocks_y * (threadsPerBlock.y) + 2;
     size = padded_width * padded_height ;
 
     unsigned char * new_in_image = (unsigned char *)calloc(size , sizeof(unsigned char));

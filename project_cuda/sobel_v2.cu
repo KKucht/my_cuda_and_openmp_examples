@@ -139,12 +139,12 @@ int main(int argc, char **argv) {
     cudaMemcpy(image_array2, d_output, size, cudaMemcpyDeviceToHost);
   
     printf("Generate image\n");
-    cv::Mat new_image(rows, cols, CV_8UC1);
-    for (unsigned long long int i = 0; i < rows; ++i) {
-        memcpy(new_image.ptr(i), image_array2 + i * cols, cols * sizeof(unsigned char));
-    }
+    // cv::Mat new_image(rows, cols, CV_8UC1);
+    // for (unsigned long long int i = 0; i < rows; ++i) {
+    //     memcpy(new_image.ptr(i), image_array2 + i * cols, cols * sizeof(unsigned char));
+    // }
 
-    cv::imwrite("imgout.png", new_image);
+    // cv::imwrite("imgout.png", new_image);
     
     cudaFree(d_input);
     cudaFree(d_output);

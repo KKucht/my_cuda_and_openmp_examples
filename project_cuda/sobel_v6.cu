@@ -8,43 +8,49 @@ using namespace cv;
 
 #define N 10
 
-__constant__ int Gx[3][3] = {
-    {-1, 0, 1},
-    {-2, 0, 2},
-    {-1, 0, 1}
-};
-
-__constant__ int Gy[3][3] = {
-    {-1, -2, -1},
-    { 0,  0,  0},
-    { 1,  2,  1}
-};
 
 __global__ void sobel_operator(unsigned char* in_image, unsigned char* out_image, long long width, long long height) {
     long long int x = blockIdx.x * blockDim.x + threadIdx.x;
     long long int y = blockIdx.y * blockDim.y + threadIdx.y;
 
+    long long shared_x = threadIdx.x + 1;
+    long long shared_y = threadIdx.y + 1;
+
     long long local_x = x + 1;
     long long local_y = y + 1;
 
-    if (local_x < width - 1 && local_y < height - 1) {
-            
-        int sumx = 0;
-        int sumy = 0;
-        for (int p = -1; p <= 1; p++) {
-            for (int q = -1; q <= 1; q++) {
-                long long idx = (local_y + p) * width + (local_x + q);
-                sumx += (in_image[idx] * Gx[p + 1][q + 1]);
-                sumy += (in_image[idx] * Gy[p + 1][q + 1]);
-            }
-        }
+    __shared__ unsigned char shared_mem[34][34];
 
-        int magnitude = sqrtf(sumx * sumx + sumy * sumy);
+    shared_mem[shared_x - 1][shared_y] = in_image[local_y * width + (local_x - 1)];
+    shared_mem[shared_x + 1][shared_y] = in_image[local_y * width + (local_x + 1)];
+    shared_mem[shared_x][shared_y - 1] = in_image[(local_y - 1) * width + local_x];
+    shared_mem[shared_x][shared_y + 1] = in_image[(local_y + 1) * width + local_x];
+    shared_mem[shared_x - 1][shared_y - 1] = in_image[(local_y - 1) * width + (local_x - 1)];
+    shared_mem[shared_x - 1][shared_y + 1] = in_image[(local_y + 1) * width + (local_x - 1)];
+    shared_mem[shared_x + 1][shared_y - 1] = in_image[(local_y - 1) * width + (local_x + 1)];
+    shared_mem[shared_x + 1][shared_y + 1] = in_image[(local_y + 1) * width + (local_x + 1)];
 
-        long long idx_out = local_y * width + local_x;
-        out_image[idx_out] = (unsigned char)(magnitude > 255 ? 255 : magnitude);
+    int sumx = 0;
+    int sumy = 0;
 
-    }
+    sumx -=      shared_mem[shared_x  - 1][shared_y - 1];
+    sumx +=      shared_mem[shared_x  + 1][shared_y - 1];
+    sumx -=  2 * shared_mem[shared_x  - 1][shared_y    ];
+    sumx +=  2 * shared_mem[shared_x  + 1][shared_y    ];
+    sumx -=      shared_mem[shared_x  - 1][shared_y + 1];
+    sumx +=      shared_mem[shared_x  + 1][shared_y + 1];
+
+    sumy -=      shared_mem[shared_x  - 1][shared_y - 1];
+    sumy -=  2 * shared_mem[shared_x     ][shared_y - 1];
+    sumy -=      shared_mem[shared_x  + 1][shared_y - 1];
+    sumy +=      shared_mem[shared_x  - 1][shared_y + 1];
+    sumy +=  2 * shared_mem[shared_x     ][shared_y + 1];
+    sumy +=      shared_mem[shared_x  + 1][shared_y + 1];
+
+    int magnitude = sqrtf(sumx * sumx + sumy * sumy);
+
+    long long idx_out = local_y * width + local_x;
+    out_image[idx_out] = (unsigned char)(magnitude > 255 ? 255 : magnitude);
 }
 
 __global__ void sobel_operator_empty(unsigned char* in_image, unsigned char* out_image, long long width, long long height) {
@@ -141,14 +147,14 @@ int main(int argc, char **argv) {
     printf("Uncertainty: %.10f\n",  (max - min) / 2.0);
 
     cudaMemcpy(image_array2, d_output, size, cudaMemcpyDeviceToHost);
-
+  
     printf("Generate image\n");
-    // cv::Mat new_image(rows, cols, CV_8UC1);
-    // for (unsigned long long int i = 0; i < rows; ++i) {
-    //     memcpy(new_image.ptr(i), image_array2 + i * cols, cols * sizeof(unsigned char));
-    // }
+    cv::Mat new_image(rows, cols, CV_8UC1);
+    for (unsigned long long int i = 0; i < rows; ++i) {
+        memcpy(new_image.ptr(i), image_array2 + i * cols, cols * sizeof(unsigned char));
+    }
 
-    // cv::imwrite("imgout.png", new_image);
+    cv::imwrite("imgout.png", new_image);
     
     cudaFree(d_input);
     cudaFree(d_output);

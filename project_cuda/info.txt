@@ -1,3 +1,0 @@
-g++ -o sobel sobel.cpp `pkg-config --cflags --libs opencv4`
-
- nvcc -o sobel sobel.cu `pkg-config --cflags --libs opencv4`

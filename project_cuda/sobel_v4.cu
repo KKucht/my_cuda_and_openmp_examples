@@ -21,57 +21,23 @@ void prep_data(unsigned char* in_image, unsigned char* out_image, long long int 
 }
 
 __global__ void sobel_operator(unsigned char* in_image, unsigned char* out_image, long long width, long long height) {
-    long long x = blockIdx.x * blockDim.x + threadIdx.x;
-    long long y = blockIdx.y * blockDim.y + threadIdx.y;
+    long long x = blockIdx.x * (blockDim.x - 2) + threadIdx.x;
+    long long y = blockIdx.y * (blockDim.y - 2) + threadIdx.y;
 
-    long long shared_x = threadIdx.x + 1;
-    long long shared_y = threadIdx.y + 1;
+    long long shared_x = threadIdx.x;   
+    long long shared_y = threadIdx.y;
 
-    long long local_x = x + 1;
-    long long local_y = y + 1;
+    long long local_x = x;
+    long long local_y = y;
 
-    __shared__ unsigned char shared_mem[34][34];
+    __shared__ unsigned char shared_mem[32][32];
 
-    shared_mem[shared_x - 1][shared_y] = in_image[local_y * width + (local_x - 1)];
-    shared_mem[shared_x + 1][shared_y] = in_image[local_y * width + (local_x + 1)];
-    shared_mem[shared_x][shared_y - 1] = in_image[(local_y - 1) * width + local_x];
-    shared_mem[shared_x][shared_y + 1] = in_image[(local_y + 1) * width + local_x];
-    shared_mem[shared_x - 1][shared_y - 1] = in_image[(local_y - 1) * width + (local_x - 1)];
-    shared_mem[shared_x - 1][shared_y + 1] = in_image[(local_y + 1) * width + (local_x - 1)];
-    shared_mem[shared_x + 1][shared_y - 1] = in_image[(local_y - 1) * width + (local_x + 1)];
-    shared_mem[shared_x + 1][shared_y + 1] = in_image[(local_y + 1) * width + (local_x + 1)];
-
-    // shared_mem[shared_x][shared_y] = in_image[local_y * width + local_x];
-
-    // if (threadIdx.x == 0) {
-    //     shared_mem[shared_x - 1][shared_y] = in_image[local_y * width + (local_x - 1)];
-    // }
-    // if (threadIdx.x == blockDim.x - 1) {
-    //     shared_mem[shared_x + 1][shared_y] = in_image[local_y * width + (local_x + 1)];
-    // }
-    // if (threadIdx.y == 0) {
-    //     shared_mem[shared_x][shared_y - 1] = in_image[(local_y - 1) * width + local_x];
-    // }
-    // if (threadIdx.y == blockDim.y - 1) {
-    //     shared_mem[shared_x][shared_y + 1] = in_image[(local_y + 1) * width + local_x];
-    // }
-
-    // if (threadIdx.x == 0 && threadIdx.y == 0) {
-    //     shared_mem[shared_x - 1][shared_y - 1] = in_image[(local_y - 1) * width + (local_x - 1)];
-    // }
-    // if (threadIdx.x == 0 && threadIdx.y == blockDim.y - 1) {
-    //     shared_mem[shared_x - 1][shared_y + 1] = in_image[(local_y + 1) * width + (local_x - 1)];
-    // }
-    // if (threadIdx.x == blockDim.x - 1 && threadIdx.y == 0) {
-    //     shared_mem[shared_x + 1][shared_y - 1] = in_image[(local_y - 1) * width + (local_x + 1)];
-    // }
-    // if (threadIdx.x == blockDim.x - 1 && threadIdx.y == blockDim.y - 1) {
-    //     shared_mem[shared_x + 1][shared_y + 1] = in_image[(local_y + 1) * width + (local_x + 1)];
-    // }
+    shared_mem[shared_x][shared_y] = in_image[local_y * width + local_x];
 
     __syncthreads();
 
-    if (local_x < width - 2 && local_y < height - 2) {
+    if (local_x < width - 2 && local_y < height - 2 && shared_x != 0 && shared_y != 0 &&
+     shared_x != blockDim.x - 1 && shared_y != blockDim.x - 1) {
 
         int sumx = 0;
         int sumy = 0;
@@ -146,8 +112,6 @@ int main(int argc, char **argv) {
 
     unsigned char * new_in_image = (unsigned char *)calloc(size , sizeof(unsigned char));
     unsigned char * new_out_image = (unsigned char *)calloc(size , sizeof(unsigned char));
-
-    printf("new rows: %lld\nnew cols: %lld\n", padded_height, padded_width);
 
     size *= sizeof(unsigned char);
 

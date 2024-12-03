@@ -1,0 +1,1 @@
+this project checks how can i optimalise algorithm on cuda. And I try do it by usage of shared memory, but I think the first versions are too good, and cannot by easy optimalised. I try for block of dimension 70016 x 70016, because 70016 is divisible by 32.
