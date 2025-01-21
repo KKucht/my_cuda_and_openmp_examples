@@ -58,6 +58,7 @@ void quickSort(int *arr, int low, int high) {
 }
 
 int main() {
+    omp_set_nested(1);
     int N;
     printf("Enter number of elements: \n");
     scanf("%d", &N);
@@ -70,11 +71,11 @@ int main() {
 
     generateRandomNumbers(randomNumbers, N, 1, 100000);
 
-    printf("Original array: \n");
-    for (int i = 0; i < N; i++) {
-        printf("%d ", randomNumbers[i]);
-    }
-    printf("\n");
+    // printf("Original array: \n");
+    // for (int i = 0; i < N; i++) {
+    //     printf("%d ", randomNumbers[i]);
+    // }
+    // printf("\n");
 
     double start_time = omp_get_wtime();
 
@@ -88,11 +89,11 @@ int main() {
 
     double end_time = omp_get_wtime();
 
-    printf("\nSorted array: \n");
-    for (int i = 0; i < N; i++) {
-        printf("%d ", randomNumbers[i]);
-    }
-    printf("\n");
+    // printf("\nSorted array: \n");
+    // for (int i = 0; i < N; i++) {
+    //     printf("%d ", randomNumbers[i]);
+    // }
+    // printf("\n");
 
     printf("Time taken: %f seconds\n", end_time - start_time);
 
