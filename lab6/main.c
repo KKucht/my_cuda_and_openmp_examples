@@ -37,25 +37,48 @@ int partition(int *arr, int low, int high) {
     return current_index;
 }
 
-// Recursive quicksort function with OpenMP
-void quickSort(int *arr, int low, int high) {
+void quickSort1(int *arr, int low, int high) {
     if (low < high) {
         int pi = partition(arr, low, high);
 
-        #pragma omp parallel sections
-        {
-            #pragma omp section
-            {
-                quickSort(arr, low, pi - 1);
-            }
+        
+        quickSort1(arr, low, pi - 1);
 
-            #pragma omp section
-            {
-                quickSort(arr, pi + 1, high);
-            }
-        }
+        quickSort1(arr, pi + 1, high);
     }
 }
+
+void quickSort2(int *arr, int low, int high, int depth) {
+    if (low < high) {
+        int pi = partition(arr, low, high);
+
+        depth++;
+
+        if (depth < 10) {
+            #pragma omp parallel sections
+            {
+                #pragma omp section
+                {
+                    quickSort2(arr, low, pi - 1, depth);
+                }
+
+                #pragma omp section
+                {
+                    quickSort2(arr, pi + 1, high, depth);
+                }
+            }
+        }
+        else{
+            quickSort1(arr, low, pi - 1);
+
+            quickSort1(arr, pi + 1, high);
+        }
+        
+    }
+}
+
+// Recursive quicksort function with OpenMP
+
 
 int main() {
     omp_set_nested(1);
@@ -83,7 +106,7 @@ int main() {
     {
         #pragma omp single
         {
-            quickSort(randomNumbers, 0, N - 1);
+            quickSort2(randomNumbers, 0, N - 1, 0);
         }
     }
 
@@ -94,6 +117,21 @@ int main() {
     //     printf("%d ", randomNumbers[i]);
     // }
     // printf("\n");
+    int diffrence = 0;
+    for (int i = 0; i < N - 1; i++) {
+        if (randomNumbers[i] > randomNumbers[i + 1]) {
+            diffrence++;
+            break;
+        }
+        
+    }
+
+    if (diffrence == 1) {
+        printf("doesn't works");
+    }
+    else {
+        printf("works");
+    }
 
     printf("Time taken: %f seconds\n", end_time - start_time);
 
